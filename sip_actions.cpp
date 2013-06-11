@@ -13,11 +13,11 @@ int sip_user_gen(char* user)
         MYSQL_ROW row;
         int query_state;
 	char *secret;
-	string tmp;
+	string tmp, conf_dir;
 	FILE *f;
-        //char tmp;
-        f=fopen("test.txt", "w+t");
-
+	conf_dir = parser("setting.conf","directories","asterisk_etc");        
+	tmp = conf_dir + "clients/" + (const char*) user + "/sip_users.conf";
+	f=fopen(tmp.c_str(), "w+t");
 	mysql_init(&mysql);
         connection = mysql_real_connect(&mysql,parser("setting.conf","database","host").c_str(),parser("setting.conf","database","user").c_str(),parser("setting.conf","database","password").c_str(),parser("setting.conf","database","base").c_str(),3306,0,0);
 	if (connection == NULL) {
