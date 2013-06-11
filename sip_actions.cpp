@@ -7,5 +7,5 @@ using namespace std;
 int sip_user_gen(char* user)
 {
 	cout<<user<<endl;
-	return 11;
+	return 0;
 }

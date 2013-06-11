@@ -8,15 +8,19 @@
 #include "sip_actions.h"
 #include "configreader.h"
 
+struct configs{
+	string username;
+};
+
+configs main_conf;
+
 using namespace std;
 
 int main(int argc, char **argv)
 {
 	int i, code;
-	char host [60];
-	char user [40];
-        char action [20];
-	const char *lol;
+	char host [60], user [40], action [20];
+
 	for (int i = 1; i != argc; ++i)
 	{
 	   	int size = 0;
@@ -29,8 +33,8 @@ int main(int argc, char **argv)
 	{
 		code = sip_user_gen(user);
 	}
-	lol = parser("setting.conf","database","user");
-	cout << lol << endl;
+	main_conf.username = parser("setting.conf","database","user");
+	cout << main_conf.username << endl;
 	
 	return 0;
 }

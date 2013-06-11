@@ -1,16 +1,18 @@
 #include <stdio.h>
 #include <libconfig.h>
+#include <string.h>
 
-const char *parser(const char* file, const char* block, const char* key)
+string parser(const char* file, const char* block, const char* key)
 {
     config_t cfg;               /*Returns all parameters in this structure */
     config_setting_t *setting;
-    const char *str1, *str2;
+    const char *str1;
+    const char *str2;
     int tmp;
  
     const char *config_file_name = file;
- 
-    const char *value;
+
+    string value;
 
     /*Initialization */
     config_init(&cfg);
@@ -23,38 +25,17 @@ const char *parser(const char* file, const char* block, const char* key)
         return "Error";
     }
  
-    /* Get the configuration file name. */
-    //if (config_lookup_string(&cfg, "filename", &str1))
-    //    printf("\nFile Type: %s", str1);
-    //else
-    //    printf("\nNo 'filename' setting in configuration file.");
- 
     /*Read the parameter group*/
     setting = config_lookup(&cfg, block);
-    if (setting != NULL)
-    {
+    if (setting != NULL){
         /*Read the string*/
         if (config_setting_lookup_string(setting, key, &str2))
-        {
-            printf("\n%s: %s", key, str2);
-	    value = str2;
-        }
-        else
+        	value = (const char*) str2;
+        else{
             printf("\nNo setting in configuration file.");
- 
-        /*Read the integer*/
-//        if (config_setting_lookup_int(setting, "param2", &tmp))
-//      {
-//            printf("\nParam2: %d", tmp);
-//        }
-//        else
-//            printf("\nNo 'param2' setting in configuration file.");
- 
-        printf("\n");
+	    value = "";
+	}
     }
- 
     config_destroy(&cfg);
     return value;
 }
- 
- 
