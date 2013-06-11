@@ -6,19 +6,18 @@
 
 using namespace std;
 
-int sip_user_gen(char* user)
+int sip_internal_number_gen(char* client_id)
 {
 	MYSQL *connection, mysql;
         MYSQL_RES *result;
         MYSQL_ROW row;
         int query_state;
-	char *secret;
 	string tmp, conf_dir;
 	FILE *f;
 	
 	// Generate patch to client sip user file
 	conf_dir = parser("setting.conf","directories","asterisk_etc");        
-	tmp = conf_dir + "clients/" + (const char*) user + "/sip_users.conf";
+	tmp = conf_dir + "clients/" + (const char*) client_id + "/sip_users.conf";
 	
 	//Open file to write
 	f=fopen(tmp.c_str(), "w+t");
@@ -30,14 +29,14 @@ int sip_user_gen(char* user)
         }
 	//Generate SQL query
 	tmp = "select md5secret,number FROM user_numbers WHERE client_id = ";
-	tmp = tmp + (const char*) user;
+	tmp = tmp + (const char*) client_id;
 	mysql_query(connection, tmp.c_str());
 	result = mysql_store_result(connection);
 	// Generate internal number config to each number in base
 	while (( row = mysql_fetch_row(result)) != NULL) {
-		fprintf(f,"[%s-%s]\n",user,row[1]);
+		fprintf(f,"[%s-%s]\n",client_id,row[1]);
 		fprintf(f,"type=friend\n");
-		fprintf(f,"context=%s-out\n",user);
+		fprintf(f,"context=%s-out\n",client_id);
 		fprintf(f,"md5secret=%s\n",row[0]);
 		fprintf(f,"dtmfmode=RFC2833\n");
 		fprintf(f,"disallow=all\n");
