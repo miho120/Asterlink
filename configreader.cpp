@@ -2,6 +2,8 @@
 #include <libconfig.h>
 #include <string.h>
 
+using namespace std;
+
 string parser(const char* file, const char* block, const char* key)
 {
     config_t cfg;               /*Returns all parameters in this structure */
