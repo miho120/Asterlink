@@ -3,5 +3,6 @@
 #define SIP_ACTIONS_H
  
 int sip_internal_number_gen(char* client_id);
+int sip_trunk_gen(char* client_id);
  
 #endif

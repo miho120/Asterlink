@@ -30,6 +30,8 @@ int main(int argc, char **argv)
 		code = client_add(client_id);
 	else if( ! strcmp(action, "client_del") )
 		code = client_del(client_id);
+	else if( ! strcmp(action, "sip_trunk_gen") )
+		code = sip_trunk_gen(client_id);
 	
 	return 0;
 }
