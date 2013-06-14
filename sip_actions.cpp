@@ -71,16 +71,16 @@ int sip_trunk_gen(char* client_id)
         MYSQL_RES *result;
         MYSQL_ROW row;
         int query_state;
-	string tmp, reg_file, conf_dir;
+	string tmp, trunk_file, reg_file, conf_dir;
 	FILE *f, *reg;
 	
 	// Generate patch to client sip user file
 	conf_dir = parser("setting.conf","directories","asterisk_etc");        
-	tmp = conf_dir + "clients/" + (const char*) client_id + "/sip_trunks.conf";
+	trunk_file = conf_dir + "clients/" + (const char*) client_id + "/sip_trunks.conf";
 	reg_file = conf_dir + "clients/" + (const char*) client_id + "/sip_register.conf";
 
 	//Open file to write
-	f=fopen(tmp.c_str(), "w+t");
+	f=fopen(trunk_file.c_str(), "w+t");
 	reg=fopen(reg_file.c_str(), "w+t");
 	// Start mysql query
 	mysql_init(&mysql);
