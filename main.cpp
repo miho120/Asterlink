@@ -4,6 +4,7 @@
 #include <cstring>
 #include <libconfig.h>
 #include "sip_actions.h"
+#include "client_actions.h"
 
 using namespace std;
 
@@ -24,9 +25,9 @@ int main(int argc, char **argv)
 
 	// Run actions
 	if( ! strcmp(action, "sip_user_gen") )
-	{
 		code = sip_internal_number_gen(client_id);
-	}
-
+	else if( ! strcmp(action, "client_add") )
+		code = client_add(client_id);
+	
 	return 0;
 }

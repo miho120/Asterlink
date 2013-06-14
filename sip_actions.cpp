@@ -8,6 +8,7 @@ using namespace std;
 
 int sip_internal_number_gen(char* client_id)
 {
+	char cmd[250];
 	MYSQL *connection, mysql;
         MYSQL_RES *result;
         MYSQL_ROW row;
@@ -50,5 +51,13 @@ int sip_internal_number_gen(char* client_id)
 	fclose(f);
         mysql_free_result(result);
         mysql_close(connection);
+
+	sprintf(cmd, "asterisk -rx 'sip reload'");
+	if(popen(cmd, "r")==NULL)
+	{
+		printf("Can't run command\n");
+		return 1;
+	}
+
 	return 0;
 }
