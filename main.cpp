@@ -28,6 +28,8 @@ int main(int argc, char **argv)
 		code = sip_internal_number_gen(client_id);
 	else if( ! strcmp(action, "client_add") )
 		code = client_add(client_id);
+	else if( ! strcmp(action, "client_del") )
+		code = client_del(client_id);
 	
 	return 0;
 }
