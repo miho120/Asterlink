@@ -89,15 +89,70 @@ int dialplan_incoming_gen(char* client_id)
 	query+= (const char*) client_id;
 	mysql_query(connection, query.c_str());
 	result = mysql_store_result(connection);
-	// Generate incoming route
-	while (( row = mysql_fetch_row(result)) != NULL) {
-		if ( row[0] != "0" )
+	while (( row = mysql_fetch_row(result)) != NULL)
+		if ( string(row[0]) != "0" )
 			fprintf(f,"exten => _X.,n,Playback(%s)\n",row[0]);
+	mysql_free_result(result);
+
+	fprintf(f,"exten => _X.,n,Set(CDR(clientfield)=%s)\n",client_id);
+
+	//Record call?
+	query = "SELECT value2 FROM dialplan_config WHERE route_type = 'in' AND type = 'incoming-day' AND value = 'record_call' AND client_id = ";
+	query+= (const char*) client_id;
+	mysql_query(connection, query.c_str());
+	result = mysql_store_result(connection);
+	while (( row = mysql_fetch_row(result)) != NULL)
+		if ( string(row[0]) == "1" ){
+			fprintf(f,"exten => _X.,n,Set(fname=${STRFTIME(${EPOCH},,%%Y%%m%%d%%H%%M)}-%s-${CALLERID(num)}-${MACRO_EXTEN})\n",client_id);
+			fprintf(f,"exten => _X.,n,MixMonitor(/var/spool/asterisk/monitor/${fname}.wav)\n",client_id);
+		}
+	mysql_free_result(result);
+
+	//Ringing to operators
+	query = "SELECT value,value2 FROM dialplan_config WHERE route_type = 'in' AND type = 'ring_group' AND client_id = ";
+	query+= (const char*) client_id;
+	query+= " ORDER BY value2, priority ASC;";
+	mysql_query(connection, query.c_str());
+	result = mysql_store_result(connection);
+	// Generate item IVR
+	while (( row = mysql_fetch_row(result)) != NULL) {
+		fprintf(f,"exten => _%s,n,%s\n",row[1],row[0]);
+		fprintf(f,"exten => _%s,n,GotoIf($[\"${DIALSTATUS}\" = \"ANSWER\"]?hang:)\n",row[1]);
  	}
+	mysql_free_result(result);
+
+	//Leave the voicemail?
+	query = "SELECT value FROM dialplan_config WHERE route_type = 'in' AND type = 'vm' AND client_id = ";
+	query+= (const char*) client_id;
+	mysql_query(connection, query.c_str());
+	result = mysql_store_result(connection);
+	while (( row = mysql_fetch_row(result)) != NULL)
+		if ( string(row[0]) != "0" )
+			fprintf(f,"exten => _X.,n,Goto(%s-vm,${EXTEN},1)\n",client_id);
+	mysql_free_result(result);
+
+	fprintf(f,"exten => _X.,n(hang),Hangup\n");
 	cout << "Done!" << endl;
-	mysql_free_result(result);	
 
+//------Generate [client-vm] context
+	cout << "Generate [client-vm] context for client \"" << client_id <<"\"... ";
+	fprintf(f,"\n[%s-vm]\n",client_id);
+	fprintf(f,"exten => _X.,1,NoOp(Received vm...)\n");
 
+	//Play greeting?
+	query = "SELECT value, value2 FROM dialplan_config WHERE route_type = 'in' AND type = 'vm' AND client_id = ";
+	query+= (const char*) client_id;
+	mysql_query(connection, query.c_str());
+	result = mysql_store_result(connection);
+	while (( row = mysql_fetch_row(result)) != NULL)
+		if ( string(row[0]) != "0" ){
+			fprintf(f,"exten => _X.,n,PlayBack(noanswer)\n",row[1]);
+			fprintf(f,"exten => _X.,n,Voicemail(%s@%s,s)\n",row[0],client_id);
+		}
+	fprintf(f,"exten => _X.,n,Hangup\n");
+	mysql_free_result(result);
+
+	cout << "Done!" << endl;
 
 	//After generate close file and connections
 	fclose(f);
