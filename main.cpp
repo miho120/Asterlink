@@ -5,6 +5,7 @@
 #include <libconfig.h>
 #include "sip_actions.h"
 #include "client_actions.h"
+#include "dialplan_actions.h"
 
 using namespace std;
 
@@ -32,6 +33,8 @@ int main(int argc, char **argv)
 		code = client_del(client_id);
 	else if( ! strcmp(action, "sip_trunk_gen") )
 		code = sip_trunk_gen(client_id);
+	else if( ! strcmp(action, "dialplan_gen") )
+		code = dialplan_incoming_gen(client_id);
 	
 	return 0;
 }

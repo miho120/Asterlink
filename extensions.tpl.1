@@ -1,0 +1,107 @@
+[client-incoming]
+exten => _X.,1,GotoIfTime()
+
+[client-incoming-day]
+exten => _X.,1,NoOp(${CALLERID(num)})
+
+; Следующий блок вставляется при наличии приветствия
+;+++ ---------------------------------------
+exten => _X.,n,PlayBack(welcome)
+;--- ---------------------------------------
+exten => _X.,n,Set(ring_count=1)
+exten => _X.,n,Set(CDR(clientfield)=client)
+
+;IVR
+;+++ ---------------------------------------
+exten => _X.,n,Goto(client-ivr,s,1)
+;--- ---------------------------------------
+
+exten => _X.,n(checknum),Noop(Start number available check...)
+
+;Блок проверки номеров принимающих вызов
+;+++ ---------------------------------------
+exten => _X.,n,GotoIf($["${DEVICE_STATE(SIP/number1)}" = "NOT_INUSE"]?ring)
+exten => _X.,n,GotoIf($["${DEVICE_STATE(SIP/number2)}" = "NOT_INUSE"]?ring)
+exten => _X.,n,GotoIf($["${DEVICE_STATE(SIP/numberN)}" = "NOT_INUSE"]?ring)
+exten => _X.,n,Goto(noanswer)
+;--- ---------------------------------------
+
+exten => _X.,n(ring),Dial(${DIALSTRING},90,mt)
+exten => _X.,n,Set(ring_count=${MATH(${ring_count}+1,int)})
+exten => _X.,n,GotoIf($["${DIALSTATUS}" = "ANSWER"]?hang)
+exten => _X.,n(noanswer),Noop()
+
+;Действия при неотвеченном звонке
+;+++ ---------------------------------------
+exten => _X.,n,GotoIf($["${ring_count}" > count]?hang)
+exten => _X.,n,Goto(checknum)
+;*** ---------------------------------------
+exten => _X.,n,Goto(client-vm,${EXTEN},1)
+;--- ---------------------------------------
+
+exten => _X.,n(hang),Hangup
+
+[client-ivr]
+;+++ ---------------------------------------
+include => client-internal
+;--- ---------------------------------------
+
+exten => s,1,Background(IVRmenu)
+exten => s,n,WaitExten()
+
+exten => 1,1,Dial(${DIALSTRING},90,mt)
+exten => 1,n,Hangup
+
+exten => 2,1,Dial(${DIALSTRING},90,mt)
+exten => 2,n,Hangup
+
+exten => 3,1,Dial(${DIALSTRING},90,mt)
+exten => 3,n,Hangup
+
+exten => t,1,Playback(invalid_choice)
+exten => t,n,Goto(s,1)
+
+exten => i,1,Playback(invalid_choice)
+exten => i,n,Goto(s,1)
+
+[client-incoming-night]
+
+
+
+[client-internal]
+exten => client-101,1,Macro(client-internal,client-101,60,rTt,0637679232,30,vm)
+exten => client-102,1,Macro(client-internal,client-102,60,rTt,0637674435,60,novm)
+exten => client-103,1,Macro(client-internal,client-103,60,rTt,nofm,,vm)
+exten => client-104,1,Macro(client-internal,client-104,60,rTt,nofm,,novm)
+
+[macro-client-internal]
+;; Аргументы:
+;; 1 - номер пира
+;; 2 - длительность вызова
+;; 3 - параметры вызова пира - музыка, звонок, трансфер
+;; 4 - наличие FollowMe: значение nofm или номер (напр. моб.)
+;; 5 - сколько звонить на внешний номер по FM (можно использовать для Hangup или перехода на VM, если есть)
+;; 6 - наличие VoiceMail: значение novm или vm (или конкретный параметр ящика?)
+;; 7 - запись разговоров - yes/no
+;; 8 - также записывать внутриофисные разговоры - yes/no
+
+exten => s,1,Dial(SIP/${ARG1},${ARG2},${ARG3})
+   same => n,GotoIf($["${DIALSTATUS}" != "ANSWER"] & $["${ARG4}"!="nofm"]?FM)
+   same => n,GotoIf($["${DIALSTATUS}" != "ANSWER"] & $["${ARG6}"!="novm"]?VM)
+   same => n,Hangup()
+   same => n(VM),VoiceMail(${ARG1}@client)
+   same => n,Hangup()
+   same => n(FM),Macro(client-outgoing,${ARG4},${ARG5}) 
+   same => n,Hangup()
+
+
+
+[client-vm]
+exten => _X.,1,PlayBack(noanswer)
+exten => _X.,n,Voicemail(number@client)
+exten => _X.,n,Hangup
+
+[client-user-vm]
+exten => _X.,1,PlayBack(noanswer)
+exten => _X.,n,Voicemail(number@client)
+exten => _X.,n,Hangup
