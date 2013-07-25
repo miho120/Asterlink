@@ -1,3 +1,3 @@
 #!/bin/sh
 
-g++ main.cpp -o main -lconfig -lmysqlclient
+g++ asterlink.cpp -o asterlink -lconfig -lmysqlclient
