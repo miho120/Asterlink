@@ -60,7 +60,6 @@ int dialplan_incoming(char* client_id, MYSQL *connection, FILE *f){
 	result = mysql_store_result(connection);
 	fprintf(f,"[%s-incoming]\n",client_id);
 	fprintf(f,"exten => _X.,1,NoOp(Received incoming call...)\n");
-	fprintf(f,"exten => _X.,n,Set(CDR(clientfield)=%s)\n",client_id);
 	// Generate incoming route
 	while (( row = mysql_fetch_row(result)) != NULL) {
 		fprintf(f,"exten => _X.,n,GotoIfTime(%s?%s-incoming-day,${EXTEN},1)\n",row[0],client_id);
@@ -125,6 +124,8 @@ int dialplan_incoming_day(char* client_id, MYSQL *connection, FILE *f){
 			fprintf(f,"exten => _X.,n,Playback(%s)\n",row[0]);
 	mysql_free_result(result);
 
+	fprintf(f,"exten => _X.,n,Set(CDR(clientfield)=%s)\n",client_id);
+
 	//Record call?
 	query = "SELECT value FROM dialplan_config WHERE route_type = 'in' AND type = 'record_call' AND client_id = ";
 	query+= (const char*) client_id;
@@ -133,7 +134,7 @@ int dialplan_incoming_day(char* client_id, MYSQL *connection, FILE *f){
 	while (( row = mysql_fetch_row(result)) != NULL)
 		if ( string(row[0]) == "1" ){
 			fprintf(f,"exten => _X.,n,Set(fname=${STRFTIME(${EPOCH},,%%Y%%m%%d%%H%%M)}-%s-${CALLERID(num)}-${EXTEN})\n",client_id);
-			fprintf(f,"exten => _X.,n,MixMonitor(/var/spool/asterisk/monitor/%s/${fname}.wav)\n",client_id);
+			fprintf(f,"exten => _X.,n,MixMonitor(/var/spool/asterisk/monitor/${fname}.wav)\n",client_id);
 		}
 	mysql_free_result(result);
 
@@ -241,41 +242,27 @@ int dialplan_external(char* client_id, MYSQL *connection, FILE *f){
 	while (( row = mysql_fetch_row(result)) != NULL)
 		if ( string(row[0]) == "1" ){
 			fprintf(f,"exten => _X.,n,Set(fname=${STRFTIME(${EPOCH},,%%Y%%m%%d%%H%%M)}-%s-${CALLERID(num)}-${EXTEN})\n",client_id);
-			fprintf(f,"exten => _X.,n,MixMonitor(/var/spool/asterisk/monitor/%s/${fname}.wav)\n",client_id);
+			fprintf(f,"exten => _X.,n,MixMonitor(/var/spool/asterisk/monitor/${fname}.wav)\n",client_id);
 		}
 	mysql_free_result(result);
-	
-	//Generate lcr routes
-	query = "SELECT prefix, template FROM route_out WHERE use_lcr = 1 AND client_id = ";
-	query+= (const char*) client_id;
-	query+= " GROUP BY template ORDER BY template ASC;";
-	mysql_query(connection, query.c_str());
-	result = mysql_store_result(connection);
-	while (( row = mysql_fetch_row(result)) != NULL){
-		fprintf(f,"exten => _%s,n,Set(i=0)\n",row[1]);
-		fprintf(f,"exten => _%s,n,Set(call_count=${ODBC_LCRCOUNT(%s,'%s')})\n",row[1],client_id,row[1]);			
-		fprintf(f,"exten => _%s,n,While($[${i} < ${call_count}])\n",row[1]);
-		fprintf(f,"exten => _%s,n,Set(trunk=${ODBC_LCRNUM(%s,'%s',${i})})\n",row[1],client_id,row[1]);
-		fprintf(f,"exten => _%s,n,Macro(%s-external,${EXTEN:%s},60,rTtS(${ODBC_LCRSEC(%s,'%s',${i})}),%s-${trunk})\n",row[1],client_id,row[0],client_id,row[1],client_id);
-		fprintf(f,"exten => _%s,n,Set(i=$[${i} + 1])\n",row[1]);
-		fprintf(f,"exten => _%s,n,EndWhile\n",row[1]);
-	}
-	mysql_free_result(result);
 
-	//Generate no lcr routes
-	query = "SELECT route_out.prefix, route_out.template, trunks.number FROM route_out LEFT JOIN trunks ON route_out.trunk = trunks.id WHERE route_out.use_lcr = 0 AND route_out.client_id = ";
+	fprintf(f,"exten => _X.,n,Set(i=0)");
+	
+	//Generate macro to call user
+	query = "SELECT route_out.prefix, route_out.template, trunks.number FROM route_out LEFT JOIN trunks ON route_out.trunk = trunks.id WHERE route_out.client_id = ";
 	query+= (const char*) client_id;
 	query+= " ORDER BY route_out.template, route_out.priority ASC;";
 	mysql_query(connection, query.c_str());
 	result = mysql_store_result(connection);
-	while (( row = mysql_fetch_row(result)) != NULL)
-			fprintf(f,"exten => _%s,n,Macro(%s-external,${EXTEN:%s},60,rTt,%s-%s)\n",row[1],client_id,row[0],client_id,row[2]);
+	while (( row = mysql_fetch_row(result)) != NULL){
+		fprintf(f,"exten => _%s,n,Set(call_count=${ODBC_LCRCOUNT(%s,'%s')})\n",row[1],client_id,row[1]);			
+		fprintf(f,"exten => _%s,n,While($[${i} < ${call_count}])\n",row[1]);
+		fprintf(f,"exten => _%s,n,Macro(%s-external,${EXTEN:%s},60,rTt,%s-${ODBC_LCRNUM(%s,'%s',${i})},${ODBC_LCRSEC(%s,'%s',${i})})\n",row[1],client_id,row[0],client_id,client_id,row[1],client_id,row[1]);
+		fprintf(f,"exten => _%s,n,Set(i=$[${i} + 1])\n",row[1]);
+		fprintf(f,"exten => _%s,n,EndWhile\n",row[1]);
+	}
 	mysql_free_result(result);
-
-	fprintf(f,"exten => _X.,n,Hangup\n\n");
-
-	fprintf(f,"exten => h,1,Set(ODBC_LCRSEC(${trunk},%s)=${CDR(billsec)})\n",client_id);
-	fprintf(f,"exten => h,n,Hangup\n\n");
+	fprintf(f,"exten => _X.,n,Hangup\n");
 
 	fprintf(f,"\n[macro-%s-external]\n",client_id);
 	fprintf(f,"exten => s,1,NoOp(Calling to ${ARG1}...)\n");

@@ -89,7 +89,7 @@ int sip_trunk_gen(char* client_id)
         	return 1;
         }
 	//Generate SQL query
-	tmp = "SELECT number, secret, host, register FROM trunks WHERE client_id = ";
+	tmp = "SELECT number, secret, host, register, calllimit FROM trunks WHERE client_id = ";
 	tmp = tmp + (const char*) client_id;
 	mysql_query(connection, tmp.c_str());
 	result = mysql_store_result(connection);
@@ -109,6 +109,7 @@ int sip_trunk_gen(char* client_id)
 		fprintf(f,"allow=ulaw\n");
 		fprintf(f,"context=%s-income\n",client_id);
 		fprintf(f,"qualify=yes\n");
+		fprintf(f,"call-limit=%s\n\n",row[4]);
 
 		if( ! strcmp(row[3], "1") )
 		{
