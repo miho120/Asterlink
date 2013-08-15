@@ -6,6 +6,7 @@
 #include "sip_actions.h"
 #include "client_actions.h"
 #include "dialplan_actions.h"
+#include "queues_actions.h"
 
 using namespace std;
 
@@ -35,6 +36,8 @@ int main(int argc, char **argv)
 		code = sip_trunk_gen(client_id);
 	else if( ! strcmp(action, "dialplan_gen") )
 		code = dialplan_gen(client_id);
+	else if( ! strcmp(action, "queues_gen") )
+		code = queues_gen(client_id);
 	
 	return 0;
 }

@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string.h>
 #include <mysql/mysql.h>
+#include <sstream>
 //#include "configreader.h"
 
 using namespace std;
@@ -61,48 +62,60 @@ int dialplan_incoming(char* client_id, MYSQL *connection, FILE *f){
 	fprintf(f,"[%s-incoming]\n",client_id);
 	fprintf(f,"exten => _X.,1,NoOp(Received incoming call...)\n");
 	fprintf(f,"exten => _X.,n,Set(CDR(clientfield)=%s)\n",client_id);
+	fprintf(f,"exten => _X.,n,Set(blacklist=${ODBC_BLACKLIST(4,${CALLERID(num)})})\n");
+	fprintf(f,"exten => _X.,n,GotoIf($[\"${blacklist}\" != \"0\"]?black)\n");
+	fprintf(f,"exten => _X.,n,Set(CALLERID(name)=${ODBC_PHONEBOOK(4,${CALLERID(num)})})\n");
+	fprintf(f,"exten => _X.,n,ExecIf($[\"${CALLERID(name)}\" = \"\"]?Set(CALLERID(name)=${CALLERID(num)}))\n");
 	// Generate incoming route
 	while (( row = mysql_fetch_row(result)) != NULL) {
 		fprintf(f,"exten => _X.,n,GotoIfTime(%s?%s-incoming-day,${EXTEN},1)\n",row[0],client_id);
  	}
-	fprintf(f,"exten => _X.,n,Goto(%s-incoming-night,${EXTEN},1)\n\n",client_id);
+	fprintf(f,"exten => _X.,n,Goto(%s-incoming-night,${EXTEN},1)\n",client_id);
+	fprintf(f,"exten => _X.,n(black),Noop(Number ${CALLERID(num)} in blacklist!!!)\n",client_id);
+	fprintf(f,"exten => _X.,n,Hangup\n\n",client_id);
 	cout << "Done!" << endl;
 	mysql_free_result(result);
 }
 
 int dialplan_ivr(char* client_id, MYSQL *connection, FILE *f){
-	string query;
-	MYSQL_RES *result;
-        MYSQL_ROW row;
-//------Generate [client-ivr] context
+	string query, query_sub;
+	MYSQL_RES *result, *result_sub;
+        MYSQL_ROW row, row_sub;
+	//------Generate [client-ivr] context
 	cout << "Generate [client-ivr] context for client \"" << client_id <<"\"... ";
-	//Generate SQL query
-	query = "SELECT value FROM dialplan_config WHERE route_type = 'in' AND type = 'ivr_main' AND client_id = ";
-	query+= (const char*) client_id;
-	query+= " ORDER BY priority ASC;";
-	mysql_query(connection, query.c_str());
-	result = mysql_store_result(connection);
-	fprintf(f,"[%s-ivr]\n",client_id);
-	fprintf(f,"exten => s,1,NoOp(Starting IVR...)\n");
-	// Generate s IVR
-	while (( row = mysql_fetch_row(result)) != NULL) {
-		fprintf(f,"exten => s,n,%s\n",row[0]);
- 	}
-	fprintf(f,"exten => s,n,WaitExten()\n\n");
-	fprintf(f,"exten => _.,1,NoOp()\n");
-	mysql_free_result(result);
 
-	//Generate items for IVR
-	query = "SELECT value,value2 FROM dialplan_config WHERE route_type = 'in' AND type = 'ivr_item' AND client_id = ";
+	//Calculate count of sub ivr
+	query = "SELECT count(*) FROM ivr WHERE client_id = ";
 	query+= (const char*) client_id;
-	query+= " ORDER BY value2, priority ASC;";
+	query+= " GROUP BY name ORDER BY name ASC;";
 	mysql_query(connection, query.c_str());
 	result = mysql_store_result(connection);
-	// Generate item IVR
+	row = mysql_fetch_row(result);
+	string input(row[0]);
+	stringstream SS(input);
+	int sub_ivr_count;
+	SS >> sub_ivr_count;
+
+	//Generate sub IVR
+	query = "SELECT name FROM ivr WHERE client_id = ";
+	query+= (const char*) client_id;
+	query+= " GROUP BY name ORDER BY name ASC;";
+	mysql_query(connection, query.c_str());
+	result = mysql_store_result(connection);
 	while (( row = mysql_fetch_row(result)) != NULL) {
-		fprintf(f,"exten => %s,n,%s\n",row[1],row[0]);
- 	}
+		fprintf(f,"\n[%s-ivr-%s]\n",client_id,row[0]);
+		query_sub = "SELECT item, priority, app FROM ivr WHERE name = '" + string(row[0]) + "' AND client_id = ";
+		query_sub+= (const char*) client_id;
+		query_sub+= " ORDER BY name, item, priority ASC;";
+		mysql_query(connection, query_sub.c_str());
+		result_sub = mysql_store_result(connection);
+		// Generate item for sub IVR
+		while (( row_sub = mysql_fetch_row(result_sub)) != NULL) {
+			fprintf(f,"exten => %s,%s,%s\n",row_sub[0],row_sub[1],row_sub[2]);
+ 		}
+	}
 	mysql_free_result(result);
+	mysql_free_result(result_sub);
 	cout << "Done!" << endl;
 }
 
